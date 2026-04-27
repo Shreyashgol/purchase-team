@@ -1,0 +1,25 @@
+project_root/
+│
+├── app/
+│   ├── main.py                      # FastAPI entrypoint
+│   ├── routers/
+│   │   └── purchase_orders.py       # Endpoints for purchase order operations
+│   ├── services/
+│   │   ├── sap_client.py            # SAP Service Layer client (auth, CRUD calls for PO)
+│   │   ├── po_intent_parser.py      # LLM parsing for purchase orders
+│   │   ├── text_to_sql.py           # Text-to-SQL conversion (TODO)
+│   │   ├── sql_executor.py          # SQL query execution (TODO)
+│   │   ├── response_generator.py    # NL response with charts (TODO)
+│   │   └── validator.py             # Pydantic schema validation
+│   ├── models/
+│   │   ├── intent.py                # Sales order intent schema (original)
+│   │   └── po_intent.py             # Purchase order intent schema
+│   ├── utils/
+│   │   ├── jwt_auth.py              # JWT handling
+│   │   └── error_handler.py         # Friendly error translation
+│   └── config.py                    # Config (SAP URL, credentials, secrets)
+│
+└── requirements.txt
+
+
+
