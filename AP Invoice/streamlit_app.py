@@ -61,12 +61,12 @@ ACTION_META = {
     "create": {
         "label": "Create AP Invoice",
         "endpoint": "/ap-invoices/parse-and-execute",
-        "example": "Create an AP invoice for vendor V001 with 2 units of ITEM123 at 150 each dated 2026-04-27 due 2026-05-05",
+        "example": "Create an AP invoice for vendor V001 with 2 units of ITEM123 at 150 each with tax code T1",
     },
     "fetch": {
         "label": "Fetch AP Invoice",
         "endpoint": "/ap-invoices/parse-and-execute",
-        "example": "Fetch AP invoice 5001",
+        "example": "Show me the latest 5 AP invoices for vendor V001",
     },
 }
 
@@ -74,7 +74,7 @@ st.markdown(
     """
 <div class="top-banner">
     <h1>🧾 SAP B1 AP Invoice Assistant</h1>
-    <p>Create and fetch AP invoice details through dedicated invoice subagents.</p>
+    <p>Schema-driven AP invoice creation with CardCode and DocumentLines, plus Text-to-SQL fetch.</p>
 </div>
 """,
     unsafe_allow_html=True,

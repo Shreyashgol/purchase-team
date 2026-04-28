@@ -13,9 +13,6 @@ class APInvoiceItem(BaseModel):
 class APInvoiceIntent(BaseModel):
     action: str = Field(..., description="create | fetch")
     cardCode: Optional[str] = None
-    docDate: Optional[str] = None
-    docDueDate: Optional[str] = None
-    taxDate: Optional[str] = None
     items: Optional[List[APInvoiceItem]] = None
     docEntry: Optional[int] = None
     fetchQuery: Optional[str] = None

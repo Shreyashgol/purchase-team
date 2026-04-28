@@ -17,13 +17,15 @@ Rules:
    - action
    - docEntry
    - cardCode
-   - docDate
-   - docDueDate
-   - taxDate
    - items: list of objects with itemCode, quantity, unitPrice, taxCode
    - fetchQuery
-4. For fetch, set items to null and preserve the original text in fetchQuery
-5. If taxDate is missing but docDueDate exists, set taxDate equal to docDueDate
+4. For create, focus on this schema:
+   - cardCode
+   - items[].itemCode
+   - items[].quantity
+   - items[].taxCode
+   - items[].unitPrice
+5. For fetch, set items to null and preserve the original text in fetchQuery
 
 User request: {user_prompt}
 """
@@ -92,9 +94,6 @@ def parse_ap_invoice_intent(user_prompt: str) -> APInvoiceIntent:
             parsed["docEntry"] = int(parsed["docEntry"])
         except (ValueError, TypeError):
             parsed["docEntry"] = None
-
-    if not parsed.get("taxDate") and parsed.get("docDueDate"):
-        parsed["taxDate"] = parsed["docDueDate"]
 
     if not parsed.get("action"):
         parsed["action"] = "create"

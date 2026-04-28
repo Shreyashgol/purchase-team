@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI
 
 from app.api import ap_invoices, auth
+from app.db.base import init_db_pool
 
 
 logging.basicConfig(level=logging.INFO)
@@ -11,6 +12,15 @@ app = FastAPI(title="SAP B1 AP Invoice Agent")
 
 app.include_router(auth.router, tags=["Auth"])
 app.include_router(ap_invoices.router, prefix="/ap-invoices", tags=["AP Invoices"])
+
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        init_db_pool()
+    except Exception as exc:
+        logging.error("Failed to initialize AP invoice database: %s", str(exc))
+        raise
 
 
 @app.get("/")

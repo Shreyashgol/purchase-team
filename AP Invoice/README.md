@@ -5,9 +5,11 @@ Separate FastAPI + Streamlit agent for SAP Business One AP invoices.
 ## Features
 
 - Create AP invoices from natural-language prompts
-- Fetch AP invoice details by invoice number / DocEntry
+- Fetch AP invoices with a Text-to-SQL flow over locally persisted invoice data
 - JWT-protected API matching the Purchase Order app pattern
 - SAP Service Layer integration through `/PurchaseInvoices`
+- Local mock SAP server for testing the SAP endpoint flow
+- Shared PostgreSQL runtime pattern for reuse across all agents
 
 ## Project Structure
 
@@ -24,18 +26,24 @@ AP Invoice/
 │   │   └── ap_invoices.py
 │   ├── crud/
 │   │   └── ap_invoice_crud.py
+│   ├── db/
+│   │   ├── base.py
+│   │   └── models.py
 │   ├── model/
 │   │   └── ap_invoice_intent.py
 │   ├── operations/
 │   │   ├── error_handler.py
 │   │   ├── intent_parser.py
 │   │   ├── sap_client.py
+│   │   ├── sql_executor.py
+│   │   ├── text_to_sql.py
 │   │   └── utils.py
 │   └── schema/
 │       ├── ap_invoice.py
 │       ├── auth.py
 │       └── response.py
 ├── requirements.txt
+├── mock_sap_server.py
 └── streamlit_app.py
 ```
 
@@ -44,6 +52,8 @@ AP Invoice/
 ```bash
 cd "/Users/shreyashgolhani/Desktop/sap /AP Invoice"
 pip install -r requirements.txt
+export SAP_AGENTS_DATABASE_URL="postgresql://postgres:password@localhost:5432/sap_agents_db"
+python mock_sap_server.py
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8003 --reload
 python -m streamlit run streamlit_app.py
 ```
@@ -53,7 +63,46 @@ python -m streamlit run streamlit_app.py
 - `POST /login`
 - `POST /ap-invoices/parse-and-execute`
 
+## Create Payload Schema
+
+The AP Invoice create schema is designed around these columns:
+
+- `CardCode`
+- `ItemCode`
+- `Quantity`
+- `TaxCode`
+- `UnitPrice`
+
+Expected SAP payload shape:
+
+```json
+{
+  "CardCode": "C001",
+  "DocumentLines": [
+    {
+      "ItemCode": "I001",
+      "Quantity": 100,
+      "TaxCode": "T1",
+      "UnitPrice": 50
+    }
+  ]
+}
+```
+
 ## Example Prompts
 
-- `Create an AP invoice for vendor V001 with 2 units of ITEM123 at 150 each due 2026-05-05`
+- `Create an AP invoice for vendor V001 with 2 units of ITEM123 at 150 each with tax code T1`
 - `Fetch AP invoice 5001`
+- `Show me the latest 5 AP invoices for vendor V001`
+- `Show open AP invoices containing ITEM123`
+
+## Fetch Flow
+
+For fetch requests, the AP Invoice agent now follows the same style as the Purchase Order fetch agent:
+
+1. Parse the user prompt into a fetch intent
+2. Convert the fetch text into a safe read-only SQL query
+3. Execute the SQL against the local AP invoice tables
+4. Return the matching rows from the API response
+
+Create requests still go to the SAP Service Layer endpoint first, and successful responses are stored locally so the fetch agent can query them later.

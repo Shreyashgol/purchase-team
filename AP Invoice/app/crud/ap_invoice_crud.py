@@ -1,4 +1,9 @@
+import logging
+
+from app.db.base import fetch_ap_invoice_by_doc_entry, fetch_ap_invoice_by_doc_num, fetch_ap_invoices_by_card_code, save_ap_invoice
 from app.operations.sap_client import SAPClient
+
+logger = logging.getLogger(__name__)
 
 
 class APInvoiceRepository:
@@ -6,7 +11,28 @@ class APInvoiceRepository:
         self.client = SAPClient()
 
     def create_ap_invoice(self, payload: dict):
-        return self.client.create_ap_invoice(payload)
+        response = self.client.create_ap_invoice(payload)
+
+        if response and "DocEntry" in response:
+            invoice_data = {
+                "DocEntry": response.get("DocEntry"),
+                "DocNum": response.get("DocNum"),
+                "CardCode": payload.get("CardCode"),
+                "CardName": response.get("CardName", ""),
+                "DocDate": payload.get("DocDate"),
+                "DocDueDate": payload.get("DocDueDate"),
+                "TaxDate": payload.get("TaxDate"),
+                "DocTotal": response.get("DocTotal"),
+                "VatSum": response.get("VatSum"),
+                "DiscSum": response.get("DiscSum"),
+                "Status": "Open",
+            }
+
+            line_items = payload.get("DocumentLines", [])
+            save_ap_invoice(invoice_data, line_items)
+            logger.info("AP invoice saved to database: %s", response.get("DocNum"))
+
+        return response
 
     def fetch_ap_invoice(self, doc_entry: int):
         return self.client.get_ap_invoice(doc_entry)
@@ -16,3 +42,12 @@ class APInvoiceRepository:
 
     def get_item(self, item_code: str):
         return self.client.get_item(item_code)
+
+    def get_ap_invoice_from_db(self, doc_num: int):
+        return fetch_ap_invoice_by_doc_num(doc_num)
+
+    def get_ap_invoice_by_doc_entry(self, doc_entry: int):
+        return fetch_ap_invoice_by_doc_entry(doc_entry)
+
+    def get_ap_invoices_by_card_code(self, card_code: str, limit: int = 20):
+        return fetch_ap_invoices_by_card_code(card_code, limit=limit)
