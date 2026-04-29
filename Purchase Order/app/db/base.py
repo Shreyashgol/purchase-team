@@ -1,19 +1,21 @@
 import logging
 from collections.abc import Sequence
-from contextlib import contextmanager
 from decimal import Decimal
 
-from sqlalchemy import create_engine, delete, select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import sessionmaker
 
 from app.config import DATABASE_CONNECTION_STRING
 from app.db.models import Base, PurchaseOrderLineRecord, PurchaseOrderRecord
+from shared.db.runtime import DatabaseRuntime
 
 logger = logging.getLogger(__name__)
 
-engine = None
-SessionLocal = None
+db_runtime = DatabaseRuntime(
+    database_url=DATABASE_CONNECTION_STRING,
+    metadata=Base.metadata,
+    logger_name=__name__,
+)
 
 
 def get_database_connection_string() -> str:
@@ -21,41 +23,11 @@ def get_database_connection_string() -> str:
 
 
 def init_db_pool():
-    global engine, SessionLocal
-
-    if engine is not None and SessionLocal is not None:
-        return engine
-
-    if not DATABASE_CONNECTION_STRING:
-        logger.warning("DATABASE_CONNECTION_STRING is empty; database persistence is disabled")
-        return None
-
-    engine = create_engine(
-        DATABASE_CONNECTION_STRING,
-        pool_pre_ping=True,
-        future=True,
-    )
-    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-    Base.metadata.create_all(bind=engine)
-    logger.info("SQLAlchemy engine initialized")
-    return engine
+    return db_runtime.init()
 
 
-@contextmanager
 def get_db_session():
-    init_db_pool()
-    if SessionLocal is None:
-        raise RuntimeError("DATABASE_CONNECTION_STRING is not configured")
-
-    session = SessionLocal()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    return db_runtime.session_scope()
 
 
 def _to_decimal(value) -> Decimal:

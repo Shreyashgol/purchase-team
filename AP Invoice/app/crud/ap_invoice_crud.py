@@ -14,21 +14,8 @@ class APInvoiceRepository:
         response = self.client.create_ap_invoice(payload)
 
         if response and "DocEntry" in response:
-            invoice_data = {
-                "DocEntry": response.get("DocEntry"),
-                "DocNum": response.get("DocNum"),
-                "CardCode": payload.get("CardCode"),
-                "CardName": response.get("CardName", ""),
-                "DocDate": payload.get("DocDate"),
-                "DocDueDate": payload.get("DocDueDate"),
-                "TaxDate": payload.get("TaxDate"),
-                "DocTotal": response.get("DocTotal"),
-                "VatSum": response.get("VatSum"),
-                "DiscSum": response.get("DiscSum"),
-                "Status": "Open",
-            }
-
-            line_items = payload.get("DocumentLines", [])
+            invoice_data = {**payload, **response}
+            line_items = response.get("DocumentLines") or payload.get("DocumentLines", [])
             save_ap_invoice(invoice_data, line_items)
             logger.info("AP invoice saved to database: %s", response.get("DocNum"))
 

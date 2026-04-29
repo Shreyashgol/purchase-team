@@ -13,7 +13,7 @@ router = APIRouter()
 def _resolve_agent_name(action: str) -> str:
     return {
         "fetch": "fetch_agent",
-    }.get(action, "create_agent")
+    }.get(action.lower(), "create_agent")
 
 
 @router.post("/parse-and-execute", response_model=APInvoiceActionResponse)
@@ -26,5 +26,5 @@ def parse_and_execute(request: PromptRequest, user: str = Depends(verify_jwt_tok
         raise HTTPException(status_code=400, detail=f"Intent parsing failed: {str(exc)}") from exc
 
     repository = APInvoiceRepository()
-    agent_module = load_agent_module(_resolve_agent_name(intent.action.lower()))
+    agent_module = load_agent_module(_resolve_agent_name(intent.action))
     return agent_module.execute(intent, repository)

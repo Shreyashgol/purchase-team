@@ -65,29 +65,31 @@ python -m streamlit run streamlit_app.py
 
 ## Create Payload Schema
 
-The AP Invoice create schema is designed around these columns:
+The AP Invoice create flow supports the original create fields and now persists a broader AP invoice header and line shape locally.
 
-- `CardCode`
-- `ItemCode`
-- `Quantity`
-- `TaxCode`
-- `UnitPrice`
+Header fields include identifiers, vendor details, dates, financial summary, payment details, status flags, document links, tax fields, and control metadata such as:
 
-Expected SAP payload shape:
+- `DocEntry`, `DocNum`, `Series`, `NumAtCard`
+- `CardCode`, `CardName`, `LicTradNum`, `CntctCode`
+- `DocDate`, `TaxDate`, `DocDueDate`, `CreateDate`, `UpdateDate`
+- `DocCur`, `DocRate`, `DocTotal`, `VatSum`, `DiscSum`, `RoundDif`, `PaidToDate`, `PaidSum`, `BalanceDue`
+- `PeyMethod`, `PayBlock`, `CtlAccount`
+- `DocStatus`, `CANCELED`, `Confirmed`, `WddStatus`
+- `BaseEntry`, `BaseType`, `ReceiptNum`, `TransId`
+- `VatPercent`, `VatPaid`, `WTDetails`, `GSTTranTyp`, `TaxInvNo`
+- `ShipToCode`, `Project`, `SlpCode`, `Comments`, `OwnerCode`, `Attachment`
 
-```json
-{
-  "CardCode": "C001",
-  "DocumentLines": [
-    {
-      "ItemCode": "I001",
-      "Quantity": 100,
-      "TaxCode": "T1",
-      "UnitPrice": 50
-    }
-  ]
-}
-```
+Line fields now cover quantity, pricing, tax, 3-way match, inventory, finance, logistics, and control details such as:
+
+- `DocEntry`, `LineNum`, `ItemCode`, `Dscription`
+- `Quantity`, `BaseQty`, `OpenQty`, `OpenInvQty`
+- `Price`, `PriceBefDi`, `DiscPrcnt`, `LineTotal`, `Currency`, `Rate`, `StockPrice`, `GrossBuyPr`, `GTotal`
+- `VatPrcnt`, `VatSum`, `TaxCode`, `TaxType`, `LineVat`
+- `BaseType`, `BaseEntry`, `BaseLine`, `PoTrgEntry`, `TrgetEntry`
+- `WhsCode`, `InvntSttus`, `StockValue`
+- `AcctCode`, `OcrCode`, `Project`
+- `ShipToCode`, `ShipToDesc`, `TrnsCode`
+- `LineStatus`, `FreeTxt`, `OwnerCode`
 
 ## Example Prompts
 

@@ -125,6 +125,16 @@ AP invoice work now lives in a separate root-level folder:
 
 That app contains dedicated `create` and `fetch` subagents for AP invoice operations.
 
+## Shared PostgreSQL Pattern
+
+The repository now uses one shared PostgreSQL runtime pattern for current and future agents:
+
+- shared DB helper package: `/Users/shreyashgolhani/Desktop/sap /shared/db`
+- common connection env support: `SAP_AGENTS_DATABASE_URL`
+- fallback support still works for `DATABASE_CONNECTION_STRING` and `DATABASE_URL`
+
+Each agent keeps its own tables, but all agents can use the same PostgreSQL database instance.
+
 ## API Examples
 
 ### 1. Login

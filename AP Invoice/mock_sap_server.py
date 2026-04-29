@@ -77,15 +77,26 @@ async def create_purchase_invoice(request: Request):
     data = await request.json()
 
     doc_entry = _next_ap_invoice_doc_entry()
-    document_lines = data.get("DocumentLines", [])
+    document_lines = []
     total = 0.0
 
-    for line in document_lines:
+    for idx, line in enumerate(data.get("DocumentLines", [])):
         quantity = float(line.get("Quantity", 0) or 0)
-        unit_price = float(line.get("UnitPrice", 0) or 0)
-        total += quantity * unit_price
+        unit_price = float(line.get("UnitPrice", line.get("Price", 0)) or 0)
+        line_total = float(line.get("LineTotal", quantity * unit_price) or 0)
+        total += line_total
+        document_lines.append(
+            {
+                **line,
+                "LineNum": line.get("LineNum", idx),
+                "Price": line.get("Price", unit_price),
+                "LineTotal": line_total,
+                "GTotal": line.get("GTotal", line_total),
+            }
+        )
 
     created = {
+        **data,
         "DocEntry": doc_entry,
         "DocNum": doc_entry,
         "CardCode": data.get("CardCode", "V001"),
@@ -98,6 +109,8 @@ async def create_purchase_invoice(request: Request):
         "DocTotal": total,
         "VatSum": 0,
         "DiscSum": 0,
+        "PaidSum": data.get("PaidSum", 0),
+        "BalanceDue": data.get("BalanceDue", total),
     }
     purchase_invoices[doc_entry] = created
     return created
