@@ -1,3 +1,6 @@
+import importlib.util
+from pathlib import Path
+
 from fastapi import HTTPException
 
 from app.operations.sql_executor import execute_read_only_sql
@@ -5,10 +8,21 @@ from app.operations.text_to_sql import build_ap_invoice_fetch_sql
 from app.schema.response import APInvoiceActionResponse
 
 
+def _load_fetch_checker():
+    checker_path = Path(__file__).with_name("fetch_checker.py")
+    spec = importlib.util.spec_from_file_location("ap_invoice_fetch_checker", checker_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load fetch checker from {checker_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def execute(intent, repository) -> APInvoiceActionResponse:
     del repository
 
     fetch_query = intent.fetchQuery or ""
+    fetch_decision = _load_fetch_checker().decide(fetch_query)
 
     try:
         query_spec = build_ap_invoice_fetch_sql(
@@ -30,15 +44,20 @@ def execute(intent, repository) -> APInvoiceActionResponse:
     filters = query_spec["filters"]
 
     if count == 1:
-        message = "AP Invoice fetched successfully."
+        message = "✅ Here is the AP Invoice you requested."
     else:
-        message = f"Fetched {count} AP invoices successfully."
+        message = f"✅ I found {count} AP invoices matching your criteria."
 
     return APInvoiceActionResponse(
         status="fetched",
         message=message,
         docEntry=doc_entry,
         data={
+            "fetchRouting": {
+                "subagent": fetch_decision.subagent,
+                "reason": fetch_decision.reason,
+                "conditions": fetch_decision.conditions,
+            },
             "filters": filters,
             "rowCount": count,
             "sql": query_spec["sql"],

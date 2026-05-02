@@ -3,7 +3,7 @@ import os
 from shared.db.runtime import resolve_database_connection_string
 
 
-SAP_BASE_URL = os.getenv("SAP_BASE_URL", "http://localhost:50000/b1s/v1")
+SAP_BASE_URL = os.getenv("SAP_BASE_URL", "https://localhost:50000/b1s/v2")
 SAP_USERNAME = os.getenv("SAP_USERNAME", "manager")
 SAP_PASSWORD = os.getenv("SAP_PASSWORD", "password")
 SAP_COMPANYDB = os.getenv("SAP_COMPANYDB", "SBODEMOUS")

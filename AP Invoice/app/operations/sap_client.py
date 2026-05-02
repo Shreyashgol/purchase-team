@@ -49,6 +49,47 @@ class SAPClient:
             return response.json()
         raise Exception(f"AP Invoice fetch failed (HTTP {response.status_code}): {response.text}")
 
+    def cancel_ap_invoice(self, doc_entry: int):
+        response = requests.post(
+            f"{SAP_BASE_URL}/PurchaseInvoices({doc_entry})/Cancel",
+            headers=self._headers(),
+            verify=False,
+        )
+        if response.status_code in (200, 204):
+            return {"DocEntry": doc_entry, "status": "cancelled"}
+        raise Exception(f"AP Invoice cancel failed (HTTP {response.status_code}): {response.text}")
+
+    def close_ap_invoice(self, doc_entry: int):
+        response = requests.post(
+            f"{SAP_BASE_URL}/PurchaseInvoices({doc_entry})/Close",
+            headers=self._headers(),
+            verify=False,
+        )
+        if response.status_code in (200, 204):
+            return {"DocEntry": doc_entry, "status": "closed"}
+        raise Exception(f"AP Invoice close failed (HTTP {response.status_code}): {response.text}")
+
+    def reopen_ap_invoice(self, doc_entry: int):
+        response = requests.post(
+            f"{SAP_BASE_URL}/PurchaseInvoices({doc_entry})/Reopen",
+            headers=self._headers(),
+            verify=False,
+        )
+        if response.status_code in (200, 204):
+            return {"DocEntry": doc_entry, "status": "reopened"}
+        raise Exception(f"AP Invoice reopen failed (HTTP {response.status_code}): {response.text}")
+
+    def update_ap_invoice(self, doc_entry: int, invoice_data: dict):
+        response = requests.patch(
+            f"{SAP_BASE_URL}/PurchaseInvoices({doc_entry})",
+            json=invoice_data,
+            headers=self._headers(),
+            verify=False,
+        )
+        if response.status_code in (200, 204):
+            return {"DocEntry": doc_entry}
+        raise Exception(f"AP Invoice update failed (HTTP {response.status_code}): {response.text}")
+
     def get_vendor(self, card_code: str):
         response = requests.get(
             f"{SAP_BASE_URL}/BusinessPartners('{card_code}')",

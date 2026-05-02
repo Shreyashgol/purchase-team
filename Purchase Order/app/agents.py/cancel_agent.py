@@ -24,6 +24,6 @@ def execute(intent, repository) -> PurchaseOrderActionResponse:
 
     return PurchaseOrderActionResponse(
         status="cancelled",
-        message=f"Purchase Order {intent.docEntry} has been successfully cancelled.",
+        message=f"✅ Got it! Purchase Order **{intent.docEntry}** has been successfully cancelled in the system.",
         docEntry=intent.docEntry,
     )

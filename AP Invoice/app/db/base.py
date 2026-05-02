@@ -69,8 +69,8 @@ def _build_invoice_row(invoice_data: dict[str, Any]) -> dict[str, Any]:
         "doc_num": invoice_data.get("DocNum"),
         "series": invoice_data.get("Series"),
         "num_at_card": invoice_data.get("NumAtCard"),
-        "card_code": invoice_data.get("CardCode"),
-        "card_name": invoice_data.get("CardName", ""),
+        "card_code": invoice_data.get("CardCode") or "",
+        "card_name": invoice_data.get("CardName") or "",
         "lic_trad_num": invoice_data.get("LicTradNum"),
         "cntct_code": invoice_data.get("CntctCode"),
         "doc_date": invoice_data.get("DocDate"),
@@ -114,7 +114,7 @@ def _build_invoice_row(invoice_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_line_row(invoice_id: int, idx: int, item: dict[str, Any]) -> dict[str, Any]:
+def _build_line_row(invoice_id: int, doc_entry: int, idx: int, item: dict[str, Any]) -> dict[str, Any]:
     quantity = _to_decimal(item.get("Quantity", 0) or 0)
     price = _to_decimal(_first_present(item.get("Price"), item.get("UnitPrice"), 0) or 0)
     line_total = item.get("LineTotal")
@@ -125,6 +125,7 @@ def _build_line_row(invoice_id: int, idx: int, item: dict[str, Any]) -> dict[str
 
     return {
         "invoice_id": invoice_id,
+        "doc_entry": doc_entry,
         "line_number": item.get("LineNum", idx),
         "item_code": item.get("ItemCode"),
         "item_description": item.get("Dscription") or item.get("ItemDescription", ""),
@@ -168,72 +169,48 @@ def _build_line_row(invoice_id: int, idx: int, item: dict[str, Any]) -> dict[str
 
 def ensure_ap_invoice_schema(engine):
     statements = [
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS series INTEGER",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS num_at_card VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS lic_trad_num VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS cntct_code INTEGER",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS create_date DATE",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS update_date DATE",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS doc_cur VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS doc_rate NUMERIC(18, 6) DEFAULT 0",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS round_dif NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS paid_to_date NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS paid_sum NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS balance_due NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS pay_method VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS pay_block VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS ctl_account VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS doc_status VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS canceled VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS confirmed VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS wdd_status VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS base_entry INTEGER",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS base_type INTEGER",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS receipt_num INTEGER",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS trans_id INTEGER",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS vat_percent NUMERIC(18, 6) DEFAULT 0",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS vat_paid NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS wt_details JSONB",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS gst_tran_typ VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS tax_inv_no VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS ship_to_code VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS project VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS slp_code INTEGER",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS comments VARCHAR",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS owner_code INTEGER",
-        "ALTER TABLE ap_invoices ADD COLUMN IF NOT EXISTS attachment VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS base_qty NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS open_qty NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS open_inv_qty NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS price NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS price_bef_di NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS disc_prcnt NUMERIC(18, 6) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS currency VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS rate NUMERIC(18, 6) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS stock_price NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS gross_buy_pr NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS g_total NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS vat_prcnt NUMERIC(18, 6) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS vat_sum NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS tax_type VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS line_vat NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS base_type INTEGER",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS base_entry INTEGER",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS base_line INTEGER",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS po_trg_entry INTEGER",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS trget_entry INTEGER",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS whs_code VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS invnt_sttus VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS stock_value NUMERIC(18, 2) DEFAULT 0",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS acct_code VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS ocr_code VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS project VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS ship_to_code VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS ship_to_desc VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS trns_code VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS line_status VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS free_txt VARCHAR",
-        "ALTER TABLE ap_invoice_lines ADD COLUMN IF NOT EXISTS owner_code INTEGER",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS docentry INTEGER",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS docnum INTEGER",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS series INTEGER",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS numatcard VARCHAR",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS cardcode VARCHAR",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS cardname VARCHAR",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS docdate DATE",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS docduedate DATE",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS taxdate DATE",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS createdate DATE",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS updatedate DATE",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS doccur VARCHAR",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS docrate NUMERIC(18, 6) DEFAULT 0",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS doctotal NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS vatsum NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS discsum NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS paidtodate NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS paidsum NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS balancedue NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS docstatus VARCHAR",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS canceled VARCHAR",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS comments VARCHAR",
+        "ALTER TABLE opch ADD COLUMN IF NOT EXISTS sap_payload JSONB",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS docentry INTEGER",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS linenum INTEGER",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS itemcode VARCHAR",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS dscription VARCHAR",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS quantity NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS openqty NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS openinvqty NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS price NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS pricebefdi NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS discprcnt NUMERIC(18, 6) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS linetotal NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS currency VARCHAR",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS vatprcnt NUMERIC(18, 6) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS vatsum NUMERIC(18, 2) DEFAULT 0",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS taxcode VARCHAR",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS whscode VARCHAR",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS linestatus VARCHAR",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS baseentry INTEGER",
+        "ALTER TABLE pch1 ADD COLUMN IF NOT EXISTS baseline INTEGER",
     ]
 
     with engine.begin() as connection:
@@ -348,12 +325,16 @@ def save_ap_invoice(invoice_data: dict, line_items: list | None = None) -> int:
     invoice_row = _build_invoice_row(invoice_data)
 
     with get_db_session() as session:
+        update_dict = {
+            getattr(APInvoiceRecord, k).name: v
+            for k, v in invoice_row.items()
+        }
         invoice_stmt = (
             insert(APInvoiceRecord)
             .values(**invoice_row)
             .on_conflict_do_update(
                 index_elements=[APInvoiceRecord.doc_entry],
-                set_=invoice_row,
+                set_=update_dict,
             )
             .returning(APInvoiceRecord.id)
         )
@@ -362,7 +343,7 @@ def save_ap_invoice(invoice_data: dict, line_items: list | None = None) -> int:
         session.execute(delete(APInvoiceLineRecord).where(APInvoiceLineRecord.invoice_id == invoice_id))
 
         for idx, item in enumerate(line_items or []):
-            session.add(APInvoiceLineRecord(**_build_line_row(invoice_id, idx, item)))
+            session.add(APInvoiceLineRecord(**_build_line_row(invoice_id, invoice_row["doc_entry"], idx, item)))
 
         session.flush()
         return invoice_id

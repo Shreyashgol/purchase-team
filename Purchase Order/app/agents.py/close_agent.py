@@ -18,6 +18,6 @@ def execute(intent, repository) -> PurchaseOrderActionResponse:
 
     return PurchaseOrderActionResponse(
         status="closed",
-        message=f"Purchase Order {intent.docEntry} has been successfully closed.",
+        message=f"🔒 All done! Purchase Order **{intent.docEntry}** is now closed.",
         docEntry=intent.docEntry,
     )

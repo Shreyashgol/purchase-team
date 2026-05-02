@@ -24,16 +24,40 @@ class PurchaseOrderRepository:
             po_data = {
                 "DocEntry": response.get("DocEntry"),
                 "DocNum": response.get("DocNum"),
+                "DocStatus": response.get("DocStatus", "O"),
+                "CANCELED": response.get("CANCELED", "N"),
                 "CardCode": payload.get("CardCode"),
+                "CardName": response.get("CardName"),
                 "DocDate": payload.get("DocDate"),
-                "DueDate": payload.get("DocDueDate"),
+                "DocDueDate": payload.get("DocDueDate"),
+                "DocCur": response.get("DocCur"),
+                "DocRate": response.get("DocRate"),
                 "DocTotal": response.get("DocTotal"),
+                "DocTotalFC": response.get("DocTotalFC"),
+                "PaidToDate": response.get("PaidToDate"),
                 "VatSum": response.get("VatSum"),
                 "DiscSum": response.get("DiscSum"),
-                "Status": "Open",
+                "GroupNum": response.get("GroupNum"),
+                "PaymentRef": response.get("PaymentRef"),
+                "PeyMethod": response.get("PeyMethod"),
+                "PayBlock": response.get("PayBlock"),
+                "InvntSttus": response.get("InvntSttus"),
+                "Transfered": response.get("Transfered"),
+                "PickStatus": response.get("PickStatus"),
+                "Confirmed": response.get("Confirmed"),
+                "Address": response.get("Address"),
+                "ShipToCode": response.get("ShipToCode"),
+                "TrnspCode": response.get("TrnspCode"),
+                "ReqDate": response.get("ReqDate"),
+                "CreateDate": response.get("CreateDate"),
+                "UpdateDate": response.get("UpdateDate"),
+                "UserSign": response.get("UserSign"),
+                "OwnerCode": response.get("OwnerCode"),
+                "Comments": response.get("Comments"),
+                "JrnlMemo": response.get("JrnlMemo"),
             }
 
-            line_items = payload.get("DocumentLines", [])
+            line_items = response.get("DocumentLines") or payload.get("DocumentLines", [])
             save_purchase_order(po_data, line_items)
             logger.info(f"PO saved to database: {response.get('DocNum')}")
 

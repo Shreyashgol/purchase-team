@@ -15,7 +15,7 @@ Rules:
    - "close"  -> user says: close, complete, finish, mark as done, fulfill
    - "create" -> user says: create, place, make, add, new purchase order
    - "update" -> user says: update, modify, change, edit
-   - "fetch"  -> user says: get, fetch, show, find, lookup, query
+   - "fetch"  -> user says: get, fetch, show, find, lookup, query, give, list, display, retrieve
 
 2. Extract these keys (use null for anything not mentioned):
    - action       : exactly one of: create / cancel / close / update / fetch

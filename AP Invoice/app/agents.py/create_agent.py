@@ -32,7 +32,7 @@ def execute(intent, repository) -> APInvoiceActionResponse:
 
     return APInvoiceActionResponse(
         status="created",
-        message="AP Invoice created successfully.",
+        message=f"🎉 Success! I've created a new AP Invoice for vendor **{intent.cardCode}**. The new document entry is **{result.get('DocEntry')}**.",
         docEntry=result.get("DocEntry"),
         data=result,
     )

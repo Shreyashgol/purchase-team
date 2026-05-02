@@ -22,7 +22,7 @@ FORBIDDEN_SQL_PATTERNS = (
     r"\bcopy\b",
 )
 
-ALLOWED_TABLES = {"purchase_orders", "purchase_order_lines"}
+ALLOWED_TABLES = {"opor", "por1", "purchase_orders", "purchase_order_lines"}
 
 
 def _validate_read_only_sql(sql: str):

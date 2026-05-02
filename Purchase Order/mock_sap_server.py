@@ -51,6 +51,7 @@ def _next_ap_invoice_doc_entry() -> int:
 
 
 @app.post("/b1s/v1/Login")
+@app.post("/b1s/v2/Login")
 async def login(request: Request):
     payload = await request.json()
     return {
@@ -61,11 +62,13 @@ async def login(request: Request):
 
 
 @app.post("/b1s/v1/Logout")
+@app.post("/b1s/v2/Logout")
 def logout():
     return {"Status": "Logged out"}
 
 
 @app.get("/b1s/v1/BusinessPartners('{card_code}')")
+@app.get("/b1s/v2/BusinessPartners('{card_code}')")
 def get_vendor(card_code: str):
     vendor = mock_vendors.get(card_code)
     if not vendor:
@@ -74,6 +77,7 @@ def get_vendor(card_code: str):
 
 
 @app.get("/b1s/v1/Items('{item_code}')")
+@app.get("/b1s/v2/Items('{item_code}')")
 def get_item(item_code: str):
     item = mock_items.get(item_code)
     if not item:
@@ -166,6 +170,64 @@ def get_purchase_invoice(doc_entry: int):
         raise HTTPException(status_code=404, detail="AP Invoice not found")
     return invoice
 
+# --- Purchase Returns ---
+purchase_returns: Dict[int, dict] = {}
+
+def _next_pr_doc_entry() -> int:
+    return max(purchase_returns.keys(), default=6000) + 1
+
+@app.post("/b1s/v2/PurchaseReturns", status_code=201)
+async def create_purchase_return(request: Request):
+    data = await request.json()
+    doc_entry = _next_pr_doc_entry()
+    document_lines = data.get("DocumentLines", [])
+    total = sum(float(l.get("Quantity", 0) or 0) * float(l.get("UnitPrice", 0) or 0) for l in document_lines)
+
+    created = {
+        "DocEntry": doc_entry,
+        "DocNum": doc_entry,
+        "CardCode": data.get("CardCode", "V001"),
+        "DocDate": data.get("DocDate"),
+        "DocDueDate": data.get("DocDueDate"),
+        "TaxDate": data.get("TaxDate"),
+        "DocumentLines": document_lines,
+        "DocStatus": "O",
+        "CANCELED": "N",
+        "DocTotal": total,
+        "Comments": data.get("Comments", "")
+    }
+    purchase_returns[doc_entry] = created
+    return created
+
+@app.patch("/b1s/v2/PurchaseReturns({doc_entry})")
+async def update_purchase_return(doc_entry: int, request: Request):
+    data = await request.json()
+    if doc_entry not in purchase_returns:
+        raise HTTPException(status_code=404, detail="Purchase Return not found")
+    purchase_returns[doc_entry].update(data)
+    return Response(status_code=204)
+
+@app.post("/b1s/v2/PurchaseReturns({doc_entry})/Cancel")
+def cancel_purchase_return(doc_entry: int):
+    if doc_entry not in purchase_returns:
+        raise HTTPException(status_code=404, detail="Purchase Return not found")
+    purchase_returns[doc_entry]["CANCELED"] = "Y"
+    purchase_returns[doc_entry]["DocStatus"] = "C"
+    return Response(status_code=204)
+
+@app.post("/b1s/v2/PurchaseReturns({doc_entry})/Close")
+def close_purchase_return(doc_entry: int):
+    if doc_entry not in purchase_returns:
+        raise HTTPException(status_code=404, detail="Purchase Return not found")
+    purchase_returns[doc_entry]["DocStatus"] = "C"
+    return Response(status_code=204)
+
+@app.post("/b1s/v2/PurchaseReturns({doc_entry})/Reopen")
+def reopen_purchase_return(doc_entry: int):
+    if doc_entry not in purchase_returns:
+        raise HTTPException(status_code=404, detail="Purchase Return not found")
+    purchase_returns[doc_entry]["DocStatus"] = "O"
+    return Response(status_code=204)
 
 if __name__ == "__main__":
     print("Starting Mock SAP Service Layer on http://127.0.0.1:50000")

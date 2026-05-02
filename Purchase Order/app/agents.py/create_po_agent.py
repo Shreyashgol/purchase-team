@@ -31,6 +31,6 @@ def execute(intent, repository) -> PurchaseOrderActionResponse:
 
     return PurchaseOrderActionResponse(
         status="created",
-        message="Purchase Order created successfully.",
+        message=f"🎉 Awesome! I've successfully created a new Purchase Order for vendor **{intent.cardCode}**. The new document entry is **{result.get('DocEntry')}**.",
         docEntry=result.get("DocEntry"),
     )

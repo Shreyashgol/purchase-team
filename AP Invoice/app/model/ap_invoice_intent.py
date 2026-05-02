@@ -11,7 +11,7 @@ class APInvoiceItem(BaseModel):
 
 
 class APInvoiceIntent(BaseModel):
-    action: str = Field(..., description="create | fetch")
+    action: str = Field(..., description="create | cancel | close | reopen | update | fetch")
     cardCode: Optional[str] = None
     items: Optional[List[APInvoiceItem]] = None
     docEntry: Optional[int] = None
