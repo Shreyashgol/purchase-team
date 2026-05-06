@@ -1,90 +1,84 @@
-# SAP Purchase Agents
+# SAP Purchase Supervisor Agent
 
-This repository contains a small multi-agent SAP Business One purchasing workspace. Each document agent runs as its own FastAPI service, and the Purchase Team Streamlit app routes natural-language requests to the correct backend.
+Unified SAP Business One purchase-agent workspace with one FastAPI backend and one Streamlit Supervisor UI.
 
-## Current Structure
+The old split folders have been consolidated into a single `app/` package. Purchase order, AP invoice, and purchase return agents now live as subfolders under `app/agents/`, while shared API, CRUD, DB, model, operations, and schema code stays in top-level package folders.
+
+## Folder Structure
 
 ```text
 sap/
 ├── .env.example
 ├── README.md
-├── shared/
-│   ├── env.py
-│   └── db/
-│       └── runtime.py
-├── Purchase Order/
-│   ├── .env.example
-│   ├── README.md
-│   ├── requirements.txt
-│   ├── streamlit_app.py
-│   └── app/
-│       ├── main.py
-│       ├── config.py
-│       ├── agents/
-│       ├── api/
-│       ├── crud/
-│       ├── db/
-│       ├── model/
-│       ├── operations/
-│       └── schema/
-├── AP Invoice/
-│   ├── .env.example
-│   ├── README.md
-│   ├── requirements.txt
-│   ├── streamlit_app.py
-│   └── app/
-│       ├── main.py
-│       ├── config.py
-│       ├── agents/
-│       ├── api/
-│       ├── crud/
-│       ├── db/
-│       ├── model/
-│       ├── operations/
-│       └── schema/
-├── Purchase Return/
-│   ├── .env.example
-│   └── app/
-│       ├── main.py
-│       ├── config.py
-│       ├── agents/
-│       ├── api/
-│       ├── crud/
-│       ├── db/
-│       ├── model/
-│       ├── operations/
-│       └── schema/
-└── Purchase Team/
-    ├── .env.example
-    ├── README.md
-    ├── streamlit_app.py
-    └── app/
-        ├── config.py
-        ├── agents/
-        ├── model/
-        └── schema/
+├── requirements.txt
+├── streamlit_app.py
+├── app/
+│   ├── main.py
+│   ├── config.py
+│   ├── chat_response.py
+│   ├── agents/
+│   │   ├── supervisor/
+│   │   ├── purchase_order/
+│   │   ├── ap_invoice/
+│   │   └── purchase_return/
+│   ├── api/
+│   │   ├── auth.py
+│   │   ├── purchase_orders.py
+│   │   ├── ap_invoices.py
+│   │   └── purchase_returns.py
+│   ├── crud/
+│   │   ├── purchase_order_crud.py
+│   │   ├── ap_invoice_crud.py
+│   │   └── purchase_return_crud.py
+│   ├── db/
+│   │   ├── base.py
+│   │   ├── purchase_order_db.py
+│   │   ├── purchase_order_models.py
+│   │   ├── ap_invoice_db.py
+│   │   ├── ap_invoice_models.py
+│   │   ├── purchase_return_db.py
+│   │   └── purchase_return_models.py
+│   ├── model/
+│   ├── operations/
+│   └── schema/
+└── shared/
+    ├── env.py
+    └── db/
+        └── runtime.py
 ```
 
-## Services
+## What Works
 
-| Service | Port | Purpose |
-| --- | ---: | --- |
-| Purchase Order API | `8002` | Create, update, fetch, close, and cancel purchase orders |
-| AP Invoice API | `8003` | Create, update, fetch, close, cancel, and reopen AP invoices |
-| Purchase Return API | `8004` | Create, update, fetch, close, cancel, and reopen purchase returns |
-| Purchase Team UI | `8501` | Streamlit router for all purchase document agents |
+- One Streamlit Supervisor Agent UI that routes purchase order, AP invoice, and purchase return prompts.
+- Supervisor routing for purchase order, AP invoice, and purchase return prompts.
+- Purchase order create, update, fetch, close, cancel.
+- AP invoice create, update, fetch, close, cancel, reopen.
+- Purchase return create, update, fetch, close, cancel, reopen.
+- Purchase order OCR document reading.
+- Purchase order bulk CSV/XLSX upload.
+- JWT login shared by all endpoints.
+- Neon/Postgres database connection shared by all agents.
 
-## Environment Configuration
+## Setup
 
-Use the root `.env` for shared configuration. Agent-specific `.env` files are optional and should only be used when one agent needs a different value.
-
-Create your real environment file from the example:
+Create and configure your environment:
 
 ```bash
 cp .env.example .env
 ```
 
-Required values:
+Install dependencies:
+
+```bash
+python3 -m venv myvenv
+./myvenv/bin/python -m pip install -r requirements.txt
+```
+
+If `myvenv` already exists, just run the install command.
+
+## Environment
+
+Important `.env` values:
 
 ```bash
 SAP_AGENTS_DATABASE_URL=postgresql://username:password@host:5432/sap_agents_db?sslmode=require
@@ -93,60 +87,33 @@ SAP_USERNAME=manager
 SAP_PASSWORD=password
 SAP_COMPANYDB=SBODEMOUS
 JWT_SECRET=change-me
-JWT_ALGORITHM=HS256
-JWT_EXPIRATION_MINUTES=120
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=llama-3.3-70b-versatile
 SQL_QUERY_TIMEOUT=30
 ```
 
-The `config.py` file in every agent now follows the same pattern:
+`SAP_AGENTS_DATABASE_URL` is the preferred Neon/Postgres variable. Legacy `DATABASE_CONNECTION_STRING` and `DATABASE_URL` still work through the shared runtime fallback.
 
-1. Adds the repository root to `sys.path`.
-2. Loads the root `.env`.
-3. Loads the agent-local `.env` if present.
-4. Exposes constants such as `SAP_BASE_URL`, `DATABASE_CONNECTION_STRING`, `JWT_SECRET`, `GROQ_API_KEY`, and `SQL_QUERY_TIMEOUT`.
+## Start The Backend
 
-## Setup
-
-The existing virtual environment is `myvenv`. If you need to recreate it:
+From the repository root:
 
 ```bash
-python -m venv myvenv
-./myvenv/bin/python -m pip install -r "Purchase Order/requirements.txt"
-./myvenv/bin/python -m pip install -r "AP Invoice/requirements.txt"
+./myvenv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-## Start The Backends
-
-Open four terminals from the repository root.
-
-Terminal 1:
+Check it:
 
 ```bash
-cd "Purchase Order"
-../myvenv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8002
+curl http://127.0.0.1:8000/
 ```
 
-Terminal 2:
+## Start Streamlit
+
+Open a second terminal from the repository root:
 
 ```bash
-cd "AP Invoice"
-../myvenv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8003
-```
-
-Terminal 3:
-
-```bash
-cd "Purchase Return"
-../myvenv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8004
-```
-
-Terminal 4:
-
-```bash
-cd "Purchase Team"
-../myvenv/bin/python -m streamlit run streamlit_app.py --server.address 127.0.0.1 --server.port 8501
+./myvenv/bin/python -m streamlit run streamlit_app.py --server.address 127.0.0.1 --server.port 8501
 ```
 
 Then open:
@@ -155,47 +122,90 @@ Then open:
 http://127.0.0.1:8501
 ```
 
-## Get A JWT Token
-
-Use any backend login endpoint. The default demo credentials are `user1` and `pass123456`.
-
-```bash
-curl -X POST "http://127.0.0.1:8002/login?username=user1&password=pass123456"
-```
-
-Copy the returned `access_token` into the Purchase Team UI sidebar.
-
-## Smoke Tests
-
-Check that each backend is alive:
-
-```bash
-curl http://127.0.0.1:8002/
-curl http://127.0.0.1:8003/
-curl http://127.0.0.1:8004/
-```
-
-Example routed request in the Streamlit UI:
+In the sidebar, keep the FastAPI URL as:
 
 ```text
-Show me the latest 5 purchase orders
+http://127.0.0.1:8000
 ```
 
-Example direct API request:
+Default demo login:
+
+```text
+username: user1
+password: pass123456
+```
+
+The UI intentionally exposes only the Supervisor Agent. Users should type every request into the supervisor chat; the supervisor then routes to the correct document agent internally.
+
+## API Examples
+
+Get a JWT token:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/login?username=user1&password=pass123456"
+```
+
+Run a purchase order prompt:
 
 ```bash
 TOKEN="paste-token-here"
 
-curl -X POST "http://127.0.0.1:8002/purchase-orders/parse-and-execute" \
+curl -X POST "http://127.0.0.1:8000/purchase-orders/parse-and-execute" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"prompt":"Show me the latest 5 purchase orders"}'
 ```
 
+Run an AP invoice prompt:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/ap-invoices/parse-and-execute" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Show me the latest 5 AP invoices"}'
+```
+
+Run a purchase return prompt:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/purchase-returns/parse-and-execute" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Show me the latest 5 purchase returns"}'
+```
+
+## Verification
+
+Compile and import-check the consolidated app:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m compileall app streamlit_app.py
+
+PYTHONDONTWRITEBYTECODE=1 ./myvenv/bin/python - <<'PY'
+from app.main import app
+from app.agents.supervisor.supervisor_agent import execute
+print(app.title)
+print(len(app.routes))
+print(execute("show latest purchase orders").data["fetchAgent"]["documentType"])
+PY
+```
+
+Expected output includes:
+
+```text
+SAP B1 Purchase Supervisor Agent
+11
+purchase_order
+```
+
 ## Development Notes
 
-- Keep secrets in `.env`; do not commit them.
-- Keep generated files such as `__pycache__/`, `*.pyc`, `.DS_Store`, and virtual environments out of git.
-- Agent submodules now live under `app/agents/`, not `app/agents.py/`.
-- Use `SAP_AGENTS_DATABASE_URL` as the shared database variable for all agents. Legacy `DATABASE_CONNECTION_STRING` and `DATABASE_URL` still work through the shared runtime fallback.
-- Run without `--reload` if local file watcher permissions cause startup issues.
+- Keep new code inside the unified `app/` package.
+- Add document-agent logic under `app/agents/<agent_name>/`.
+- Add SAP endpoints under `app/api/`.
+- Add repository/CRUD logic under `app/crud/`.
+- Add Neon/Postgres database logic under `app/db/`.
+- Add intent/data models under `app/model/`.
+- Add shared and document-specific operations under `app/operations/`.
+- Add request/response schemas under `app/schema/`.
+- Keep secrets in `.env`; do not commit real credentials.
