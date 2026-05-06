@@ -1,9 +1,7 @@
 import json
 from typing import Any
 
-import requests
-
-from app.config import GROQ_API_KEY, GROQ_MODEL
+from app.operations.llm_client import chat_completion
 
 
 SYSTEM_PROMPT = """
@@ -47,14 +45,14 @@ def _fallback_response(
         return (
             f"{message}\n\n"
             f"I handled this as a **{document_type}** `{action}` request. "
-            "The LLM suggestion service is currently unavailable, so I am not generating follow-up suggestions."
+            "The local Ollama suggestion service is currently unavailable, so I am not generating follow-up suggestions."
         )
 
     return (
         f"I understood your request as a **{document_type}** `{action}` request, but I could not complete it yet.\n\n"
         f"**What needs attention:** {detail}\n\n"
         "Please send the missing or corrected details in one message, and I will try again. "
-        "The LLM suggestion service is currently unavailable, so I am not generating follow-up suggestions."
+        "The local Ollama suggestion service is currently unavailable, so I am not generating follow-up suggestions."
     )
 
 
@@ -64,9 +62,6 @@ def generate_chat_response(
     api_response: dict[str, Any],
     status_code: int | None,
 ) -> str:
-    if not GROQ_API_KEY:
-        return _fallback_response(prompt, routing_decision, api_response, status_code)
-
     user_payload = {
         "userPrompt": prompt,
         "routingDecision": routing_decision,
@@ -75,30 +70,20 @@ def generate_chat_response(
     }
 
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": GROQ_MODEL,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": (
-                            "Create the final chatbot reply for this SAP request.\n\n"
-                            f"{_json_preview(user_payload)}"
-                        ),
-                    },
-                ],
-                "temperature": 0.3,
-                "max_tokens": 700,
-            },
-            timeout=30,
+        return chat_completion(
+            [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        "Create the final chatbot reply for this SAP request.\n\n"
+                        f"{_json_preview(user_payload)}"
+                    ),
+                },
+            ],
+            temperature=0.3,
+            max_tokens=2048,
+            timeout=120,
         )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
     except Exception:
         return _fallback_response(prompt, routing_decision, api_response, status_code)

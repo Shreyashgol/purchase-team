@@ -25,8 +25,8 @@ JWT_SECRET = os.getenv("JWT_SECRET", "change-me")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "120"))
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
 
 SQL_QUERY_TIMEOUT = int(os.getenv("SQL_QUERY_TIMEOUT", "30"))
 DATABASE_CONNECTION_STRING = resolve_database_connection_string()
@@ -43,4 +43,3 @@ PURCHASE_RETURN_API_URL = os.getenv(
     "PURCHASE_RETURN_API_URL",
     "http://127.0.0.1:8000/purchase-returns/parse-and-execute",
 )
-

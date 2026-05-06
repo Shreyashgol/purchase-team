@@ -1,11 +1,10 @@
 import json
 from typing import Any, Dict, TypedDict
 
-import requests
 from langgraph.graph import END, StateGraph
 
 from app.agents.supervisor.fetch_agent import decide
-from app.config import GROQ_API_KEY, GROQ_MODEL
+from app.operations.llm_client import chat_completion
 
 CLASSIFIER_PROMPT_TEMPLATE = """
 You are the Supervisor Router for a SAP B1 Multi-Agent System.
@@ -49,36 +48,15 @@ class SupervisorState(TypedDict, total=False):
 
 
 def classifier_node(state: SupervisorState) -> SupervisorState:
-    if not GROQ_API_KEY:
-        fallback = decide(state["prompt"])
-        return {
-            "document_type": fallback["documentType"],
-            "action": fallback["action"],
-            "reason": "Routed with local keyword fallback because GROQ_API_KEY is not configured.",
-            "error": "",
-        }
-
     formatted_prompt = CLASSIFIER_PROMPT_TEMPLATE.format(user_prompt=state["prompt"])
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": GROQ_MODEL,
-        "messages": [{"role": "user", "content": formatted_prompt}],
-        "temperature": 0.1,
-        "max_tokens": 512,
-    }
 
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=30,
+        raw = chat_completion(
+            [{"role": "user", "content": formatted_prompt}],
+            temperature=0.1,
+            max_tokens=2048,
+            timeout=120,
         )
-        response.raise_for_status()
-        raw = response.json()["choices"][0]["message"]["content"].strip()
 
         if "```" in raw:
             for block in raw.split("```"):
@@ -104,7 +82,7 @@ def classifier_node(state: SupervisorState) -> SupervisorState:
         return {
             "document_type": fallback["documentType"],
             "action": fallback["action"],
-            "reason": f"Routed with local keyword fallback after classifier failure: {exc}",
+            "reason": f"Routed with local keyword fallback after Ollama classifier failure: {exc}",
             "error": "",
         }
 

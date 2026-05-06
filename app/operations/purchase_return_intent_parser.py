@@ -1,9 +1,7 @@
 import json
 
-import requests
-
-from app.config import GROQ_API_KEY, GROQ_MODEL
 from app.model.purchase_return_intent import PurchaseReturnIntent
+from app.operations.llm_client import chat_completion
 
 
 PARSE_PROMPT_TEMPLATE = """
@@ -57,19 +55,13 @@ def _extract_json(raw: str) -> dict:
 
 def parse_purchase_return_intent(user_prompt: str) -> PurchaseReturnIntent:
     formatted_prompt = PARSE_PROMPT_TEMPLATE.format(user_prompt=user_prompt)
-    response = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-        json={
-            "model": GROQ_MODEL,
-            "messages": [{"role": "user", "content": formatted_prompt}],
-            "temperature": 0.1,
-            "max_tokens": 1024,
-        },
-        timeout=30,
+    raw = chat_completion(
+        [{"role": "user", "content": formatted_prompt}],
+        temperature=0.1,
+        max_tokens=2048,
+        timeout=120,
     )
-    response.raise_for_status()
-    parsed = _extract_json(response.json()["choices"][0]["message"]["content"].strip())
+    parsed = _extract_json(raw)
     if isinstance(parsed.get("items"), list) and len(parsed["items"]) == 0:
         parsed["items"] = None
     if parsed.get("docEntry") is not None:

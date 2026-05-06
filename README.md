@@ -87,12 +87,23 @@ SAP_USERNAME=manager
 SAP_PASSWORD=password
 SAP_COMPANYDB=SBODEMOUS
 JWT_SECRET=change-me
-GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=gemma4:e2b
 SQL_QUERY_TIMEOUT=30
 ```
 
 `SAP_AGENTS_DATABASE_URL` is the preferred Neon/Postgres variable. Legacy `DATABASE_CONNECTION_STRING` and `DATABASE_URL` still work through the shared runtime fallback.
+
+## Start Ollama
+
+Install and start Ollama locally, then pull the configured model:
+
+```bash
+ollama pull gemma4:e2b
+ollama serve
+```
+
+If Ollama is already running as a background service, only the `ollama pull` command is needed.
 
 ## Start The Backend
 

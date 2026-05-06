@@ -3,8 +3,8 @@ import re
 
 import requests
 
-from app.config import GROQ_API_KEY, GROQ_MODEL
 from app.model.purchase_order_intent import PurchaseOrderIntent, PurchaseOrderItem
+from app.operations.llm_client import chat_completion
 
 PARSE_PROMPT_TEMPLATE = """
 You are a SAP B1 purchase order assistant. Parse the user request into a JSON object.
@@ -142,29 +142,17 @@ def _parse_purchase_order_intent_locally(user_prompt: str) -> PurchaseOrderInten
 
 def parse_purchase_order_intent(user_prompt: str) -> PurchaseOrderIntent:
     formatted_prompt = PARSE_PROMPT_TEMPLATE.format(user_prompt=user_prompt)
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": GROQ_MODEL,
-        "messages": [{"role": "user", "content": formatted_prompt}],
-        "temperature": 0.1,
-        "max_tokens": 1024,
-    }
 
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=30,
+        raw = chat_completion(
+            [{"role": "user", "content": formatted_prompt}],
+            temperature=0.1,
+            max_tokens=2048,
+            timeout=120,
         )
-        response.raise_for_status()
     except requests.exceptions.RequestException as exc:
         return _parse_purchase_order_intent_locally(user_prompt)
 
-    raw = response.json()["choices"][0]["message"]["content"].strip()
     parsed = _extract_json(raw)
 
     if isinstance(parsed.get("items"), list) and len(parsed["items"]) == 0:
