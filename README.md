@@ -187,16 +187,110 @@ In the sidebar:
 
 ---
 
-## Building as a Package
+## Installing the Pre-Built `.whl` Package
 
-The project can be built into a standard Python `.whl` distribution package.
+A pre-built wheel is available in the `dist/` folder of this repository.  
+Use this to install the agent as a proper Python package without cloning the full repo.
+
+### Option A — Install directly from GitHub (recommended)
+
+```bash
+# 1. Create & activate a virtual environment
+python3 -m venv sap-env
+source sap-env/bin/activate          # Windows: sap-env\Scripts\activate
+
+# 2. Download and install the wheel straight from GitHub
+pip install "https://github.com/Shreyashgol/purchase-Team/raw/main/dist/sap_purchase_supervisor_agent-0.1.0-py3-none-any.whl"
+```
+
+### Option B — Clone the repo and install from `dist/`
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/Shreyashgol/purchase-Team.git
+cd purchase-Team
+
+# 2. Create & activate a virtual environment
+python3 -m venv sap-env
+source sap-env/bin/activate          # Windows: sap-env\Scripts\activate
+
+# 3. Install the wheel
+pip install dist/sap_purchase_supervisor_agent-0.1.0-py3-none-any.whl
+```
+
+### Option C — Install all dependencies alongside the wheel
+
+If you also want the full dev dependency set:
+
+```bash
+pip install dist/sap_purchase_supervisor_agent-0.1.0-py3-none-any.whl
+pip install -r requirements.txt
+```
+
+---
+
+## Using the Package After Installation
+
+Once installed the package exposes the FastAPI app and all agents as importable modules.
+
+### 1. Configure environment variables
+
+```bash
+cp .env.example .env
+# Fill in SAP_AGENTS_DATABASE_URL, GROQ_API_KEY, JWT_SECRET (minimum required)
+```
+
+### 2. Start the FastAPI backend
+
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Verify it's running:
+
+```bash
+curl http://127.0.0.1:8000/
+# → {"message": "SAP B1 Purchase Supervisor Agent is running"}
+```
+
+### 3. Start the Streamlit Supervisor UI
+
+Open a **second terminal**:
+
+```bash
+streamlit run streamlit_app.py --server.address 127.0.0.1 --server.port 8501
+```
+
+Then open **http://127.0.0.1:8501** in your browser.
+
+### 4. Use the agents in your own Python code
+
+```python
+from app.agents.supervisor.supervisor_agent import execute
+
+# Route any natural-language purchase prompt automatically
+result = execute("Show me the latest 5 purchase orders for vendor V001")
+print(result)
+```
+
+```python
+from app.agents.purchase_order.purchase_order_agent import execute as po_execute
+
+result = po_execute("Create a purchase order for 10 units of item A00001 from vendor V001")
+print(result)
+```
+
+---
+
+## Building the `.whl` Yourself
+
+If you want to rebuild the wheel from source:
 
 ```bash
 python3 -m pip install build
 python3 -m build --wheel
+# Output: dist/sap_purchase_supervisor_agent-0.1.0-py3-none-any.whl
 ```
-
-This will create a `.whl` file in the `dist/` directory that can be installed directly via pip.
 
 ---
 
