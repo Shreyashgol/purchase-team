@@ -31,7 +31,7 @@ def parse_and_act_on_purchase_order(request: PromptRequest,user: str = Depends(v
         raise HTTPException(status_code=400, detail=f"Intent parsing failed: {str(exc)}") from exc
 
     repository = PurchaseOrderRepository()
-    agent_module = load_agent_module("supervisor_agent", "purchase_order")
+    agent_module = load_agent_module("supervisor_agent", "purchase_team/purchase_order")
     return agent_module.execute(intent, repository)
 
 

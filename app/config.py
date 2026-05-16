@@ -13,7 +13,7 @@ from shared.env import load_agent_env
 
 load_agent_env(__file__)
 
-APP_NAME = "SAP B1 Purchase Supervisor Agent"
+APP_NAME = "SAP B1 ERP Big Supervisor Agent"
 API_PREFIX = ""
 
 SAP_BASE_URL = os.getenv("SAP_BASE_URL", "http://localhost:50000/b1s/v1")
@@ -28,6 +28,14 @@ JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "120"))
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+BIG_SUPERVISOR_GROQ_API_KEY = os.getenv("BIG_SUPERVISOR_GROQ_API_KEY", GROQ_API_KEY)
+BIG_SUPERVISOR_GROQ_MODEL = os.getenv("BIG_SUPERVISOR_GROQ_MODEL", GROQ_MODEL)
+PURCHASE_TEAM_GROQ_API_KEY = os.getenv("PURCHASE_TEAM_GROQ_API_KEY", GROQ_API_KEY)
+PURCHASE_TEAM_GROQ_MODEL = os.getenv("PURCHASE_TEAM_GROQ_MODEL", GROQ_MODEL)
+SALES_TEAM_GROQ_API_KEY = os.getenv("SALES_TEAM_GROQ_API_KEY", GROQ_API_KEY)
+SALES_TEAM_GROQ_MODEL = os.getenv("SALES_TEAM_GROQ_MODEL", GROQ_MODEL)
+SALES_SQL_GROQ_API_KEY = os.getenv("SALES_SQL_GROQ_API_KEY", SALES_TEAM_GROQ_API_KEY)
+SALES_SQL_GROQ_MODEL = os.getenv("SALES_SQL_GROQ_MODEL", SALES_TEAM_GROQ_MODEL)
 
 SQL_QUERY_TIMEOUT = int(os.getenv("SQL_QUERY_TIMEOUT", "30"))
 HANA_SQL_API_URL = os.getenv(
@@ -43,6 +51,14 @@ PURCHASE_RAG_PERSIST_DIR = (
     if _purchase_rag_persist_dir.is_absolute()
     else REPO_ROOT / _purchase_rag_persist_dir
 )
+SALES_RAG_EMBEDDING_MODEL = os.getenv("SALES_RAG_EMBEDDING_MODEL", PURCHASE_RAG_EMBEDDING_MODEL)
+_sales_rag_persist_dir = Path(os.getenv("SALES_RAG_PERSIST_DIR", ".rag_chroma/sales"))
+SALES_RAG_PERSIST_DIR = (
+    _sales_rag_persist_dir
+    if _sales_rag_persist_dir.is_absolute()
+    else REPO_ROOT / _sales_rag_persist_dir
+)
+SALES_RAG_USE_VECTOR = os.getenv("SALES_RAG_USE_VECTOR", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 PURCHASE_ORDER_API_URL = os.getenv(
     "PURCHASE_ORDER_API_URL",

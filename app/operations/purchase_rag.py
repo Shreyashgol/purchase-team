@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,8 @@ ANALYTIC_PATTERNS = (
 )
 
 ALLOWED_RAG_TABLES = {"opor", "por1", "opch", "pch1", "orpd", "rpd1"}
+_TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -63,6 +66,46 @@ def should_use_purchase_rag(fetch_query: str) -> bool:
 
 def _load_json(path: Path):
     return json.loads(path.read_text())
+
+
+def _tokens(text: str) -> set[str]:
+    return {token.lower() for token in _TOKEN_RE.findall(text or "")}
+
+
+def _lexical_search(documents: list[RagDocument], question: str, top_k: int) -> list[dict[str, Any]]:
+    query_tokens = _tokens(question)
+    scored: list[tuple[float, RagDocument]] = []
+
+    for document in documents:
+        searchable_text = " ".join(
+            [
+                document.embedding_text,
+                document.content,
+                " ".join(str(value) for value in document.metadata.values()),
+            ]
+        )
+        document_tokens = _tokens(searchable_text)
+        overlap = query_tokens & document_tokens
+        if not overlap:
+            score = 0.0
+        else:
+            score = len(overlap) / max(len(query_tokens), 1)
+            lower_text = searchable_text.lower()
+            score += sum(0.2 for token in overlap if f" {token} " in f" {lower_text} ")
+
+        scored.append((score, document))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [
+        {
+            "id": document.id,
+            "content": document.content,
+            "metadata": document.metadata,
+            "score": score,
+            "distance": None,
+        }
+        for score, document in scored[:top_k]
+    ]
 
 
 def _stable_id(prefix: str, value: str) -> str:
@@ -130,7 +173,7 @@ class _EmbeddingModel:
     def __init__(self):
         from sentence_transformers import SentenceTransformer
 
-        self.model = SentenceTransformer(PURCHASE_RAG_EMBEDDING_MODEL)
+        self.model = SentenceTransformer(PURCHASE_RAG_EMBEDDING_MODEL, local_files_only=True)
 
     def encode(self, texts: list[str]) -> list[list[float]]:
         embeddings = self.model.encode(texts, normalize_embeddings=True)
@@ -194,13 +237,29 @@ class _PurchaseRagStore:
         }
 
 
-_STORE: _PurchaseRagStore | None = None
+class _LexicalPurchaseRagStore:
+    def __init__(self):
+        self.schema_documents = _table_documents()
+        self.query_documents = _query_documents()
+
+    def retrieve(self, question: str, top_k_schema: int = 4, top_k_queries: int = 4) -> dict[str, list[dict[str, Any]]]:
+        return {
+            "schema": _lexical_search(self.schema_documents, question, top_k_schema),
+            "queries": _lexical_search(self.query_documents, question, top_k_queries),
+        }
 
 
-def _get_store() -> _PurchaseRagStore:
+_STORE: _PurchaseRagStore | _LexicalPurchaseRagStore | None = None
+
+
+def _get_store() -> _PurchaseRagStore | _LexicalPurchaseRagStore:
     global _STORE
     if _STORE is None:
-        _STORE = _PurchaseRagStore()
+        try:
+            _STORE = _PurchaseRagStore()
+        except Exception as exc:
+            logger.warning("Purchase RAG vector store unavailable, using lexical retrieval: %s", exc)
+            _STORE = _LexicalPurchaseRagStore()
     return _STORE
 
 
@@ -355,7 +414,6 @@ def build_purchase_rag_fetch_sql(fetch_query: str) -> dict[str, Any]:
     retrieval = _get_store().retrieve(question)
     raw_sql = groq_chat_completion(_build_sql_prompt(question, retrieval), temperature=0, max_tokens=1024)
     sql = _extract_sql(raw_sql)
-    print(sql)
     _validate_generated_sql(sql)
 
     return {

@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.config import PURCHASE_RAG_EMBEDDING_MODEL, REPO_ROOT
+from app.config import (
+    SALES_RAG_EMBEDDING_MODEL,
+    SALES_RAG_PERSIST_DIR,
+    SALES_RAG_USE_VECTOR,
+    SALES_SQL_GROQ_API_KEY,
+    SALES_SQL_GROQ_MODEL,
+)
 from app.operations.groq_client import groq_chat_completion
 
 RAG_ROOT = Path(__file__).resolve().parents[1] / "rag"
@@ -15,9 +22,9 @@ DATA_DIR = RAG_ROOT / "data"
 SALES_TABLES_PATH = DATA_DIR / "sales_tables.json"
 SALES_QUERIES_PATH = DATA_DIR / "sales_queries.json"
 
-SALES_RAG_PERSIST_DIR = REPO_ROOT / ".rag_chroma" / "sales"
-
 ALLOWED_SALES_TABLES = {"ORDR", "RDR1", "OINV", "INV1", "OCRD", "OITM"}
+_TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -30,6 +37,46 @@ class RagDocument:
 
 def _load_json(path: Path):
     return json.loads(path.read_text())
+
+
+def _tokens(text: str) -> set[str]:
+    return {token.lower() for token in _TOKEN_RE.findall(text or "")}
+
+
+def _lexical_search(documents: list[RagDocument], question: str, top_k: int) -> list[dict[str, Any]]:
+    query_tokens = _tokens(question)
+    scored: list[tuple[float, RagDocument]] = []
+
+    for document in documents:
+        searchable_text = " ".join(
+            [
+                document.embedding_text,
+                document.content,
+                " ".join(str(value) for value in document.metadata.values()),
+            ]
+        )
+        document_tokens = _tokens(searchable_text)
+        overlap = query_tokens & document_tokens
+        if not overlap:
+            score = 0.0
+        else:
+            score = len(overlap) / max(len(query_tokens), 1)
+            lower_text = searchable_text.lower()
+            score += sum(0.2 for token in overlap if f" {token} " in f" {lower_text} ")
+
+        scored.append((score, document))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [
+        {
+            "id": document.id,
+            "content": document.content,
+            "metadata": document.metadata,
+            "score": score,
+            "distance": None,
+        }
+        for score, document in scored[:top_k]
+    ]
 
 
 def _stable_id(prefix: str, value: str) -> str:
@@ -56,7 +103,11 @@ Joins:
                 id=_stable_id("sales_schema", table_name),
                 content=content,
                 embedding_text=table_data.get("embedding_text", ""),
-                metadata={"type": "schema", "table_name": table_name},
+                metadata={
+                    "type": "schema",
+                    "table_name": table_name,
+                    "embedding_text": table_data.get("embedding_text", ""),
+                },
             )
         )
     return documents
@@ -79,7 +130,10 @@ SQL Pattern: {entry.get("sql", "")}""".strip()
                 metadata={
                     "type": "query",
                     "intent": entry.get("intent", ""),
+                    "document_type": entry.get("document_type", ""),
+                    "tables_used": ",".join(entry.get("tables_used", [])),
                     "sql": entry.get("sql", ""),
+                    "embedding_text": entry.get("embedding_text", ""),
                 },
             )
         )
@@ -89,7 +143,8 @@ SQL Pattern: {entry.get("sql", "")}""".strip()
 class _EmbeddingModel:
     def __init__(self):
         from sentence_transformers import SentenceTransformer
-        self.model = SentenceTransformer(PURCHASE_RAG_EMBEDDING_MODEL)
+
+        self.model = SentenceTransformer(SALES_RAG_EMBEDDING_MODEL, local_files_only=True)
 
     def encode(self, texts: list[str]) -> list[list[float]]:
         return [e.tolist() for e in self.model.encode(texts, normalize_embeddings=True)]
@@ -122,10 +177,10 @@ class _SalesRagStore:
             embeddings=embeddings,
         )
 
-    def retrieve(self, question: str, top_k: int = 2) -> dict[str, list[dict]]:
+    def retrieve(self, question: str, top_k_schema: int = 4, top_k_queries: int = 4) -> dict[str, list[dict]]:
         q_embed = self.embedding_model.encode([question])[0]
 
-        def _search(col):
+        def _search(col, top_k: int):
             res = col.query(query_embeddings=[q_embed], n_results=min(top_k, col.count()))
             docs = []
             if res["documents"] and res["documents"][0]:
@@ -134,18 +189,37 @@ class _SalesRagStore:
             return docs
 
         return {
-            "schema": _search(self.schema_collection),
-            "queries": _search(self.query_collection),
+            "schema": _search(self.schema_collection, top_k_schema),
+            "queries": _search(self.query_collection, top_k_queries),
         }
 
 
-_STORE: _SalesRagStore | None = None
+class _LexicalSalesRagStore:
+    def __init__(self):
+        self.schema_documents = _table_documents()
+        self.query_documents = _query_documents()
+
+    def retrieve(self, question: str, top_k_schema: int = 4, top_k_queries: int = 4) -> dict[str, list[dict[str, Any]]]:
+        return {
+            "schema": _lexical_search(self.schema_documents, question, top_k_schema),
+            "queries": _lexical_search(self.query_documents, question, top_k_queries),
+        }
 
 
-def _get_store() -> _SalesRagStore:
+_STORE: _SalesRagStore | _LexicalSalesRagStore | None = None
+
+
+def _get_store() -> _SalesRagStore | _LexicalSalesRagStore:
     global _STORE
     if _STORE is None:
-        _STORE = _SalesRagStore()
+        if not SALES_RAG_USE_VECTOR:
+            _STORE = _LexicalSalesRagStore()
+            return _STORE
+        try:
+            _STORE = _SalesRagStore()
+        except Exception as exc:
+            logger.warning("Sales RAG vector store unavailable, using lexical retrieval: %s", exc)
+            _STORE = _LexicalSalesRagStore()
     return _STORE
 
 
@@ -160,11 +234,27 @@ def _extract_sql(text: str) -> str:
     return cleaned.rstrip(";").strip()
 
 
+def _referenced_tables(sql: str) -> set[str]:
+    return set(re.findall(r"\b(?:from|join)\s+([a-zA-Z_][a-zA-Z0-9_]*)", sql, flags=re.IGNORECASE))
+
+
+def _validate_generated_sql(sql: str):
+    if not sql.lower().startswith("select"):
+        raise ValueError("RAG generated a non-SELECT query")
+    if ";" in sql:
+        raise ValueError("RAG generated multiple SQL statements")
+    unknown_tables = {table.upper() for table in _referenced_tables(sql)} - ALLOWED_SALES_TABLES
+    if unknown_tables:
+        raise ValueError(f"RAG generated SQL with unsupported tables: {', '.join(sorted(unknown_tables))}")
+
+
 SALES_SQL_SYSTEM = """You are a SAP HANA SQL expert for SAP Business One SALES queries.
 
-Return ONLY one valid SAP HANA SELECT query — no explanation, no markdown, no code fences.
+Return ONLY one valid SAP HANA SELECT query - no explanation, no markdown, no code fences.
 
 STRICT RULES:
+- Output must contain exactly one SELECT statement.
+- Never generate INSERT, UPDATE, DELETE, UPSERT, MERGE, DROP, ALTER, TRUNCATE, CREATE, REPLACE, EXECUTE, CALL, DO, GRANT, REVOKE, or transaction commands.
 - Always alias tables: FROM ORDR T0, JOIN OCRD T1 ON ...
 - Use alias when referencing columns: T0."DocTotal", T1."CardName"
 - ALWAYS wrap EVERY column name in double quotes: T0."DocEntry" WITHOUT EXCEPTION
@@ -174,36 +264,78 @@ STRICT RULES:
 - Use COALESCE for null handling
 - Never use semicolons
 - Never use CTEs unless absolutely required
+- Never use wildcard SELECT * unless explicitly requested.
 - Only use tables: ORDR, RDR1, OINV, INV1, OCRD, OITM
 
 STATUS RULES:
 - "DocStatus" = 'O' means Open, 'C' means Closed
 - "CANCELED" = 'Y' means Cancelled
+- "CANCELED" = 'N' means Active
 
 SAP SALES TABLES:
 - Sales Orders: header=ORDR, lines=RDR1 (join on "DocEntry")
 - AR Invoices:  header=OINV, lines=INV1 (join on "DocEntry")
 - Customers: OCRD (join ORDR or OINV on "CardCode")
 - Items:     OITM (join RDR1 or INV1 on "ItemCode")
+
+BUSINESS RULES:
+- Sales orders represent customer commitments and pipeline.
+- AR invoices represent finalized customer billing and revenue.
+- Sales returns represent returned goods or credit against customer sales.
+- Join header and row tables using header."DocEntry" = row."DocEntry".
+- Use ORDER BY for ranked outputs.
+- Prefer LIMIT 10 for ranked/list queries unless user specifies another limit.
+- Ensure all non-aggregated selected columns are included in GROUP BY.
 """
 
 
-def generate_sales_sql(question: str) -> str:
-    store = _get_store()
-    retrieval = store.retrieve(question)
-    schema_ctx = "\n\n--\n\n".join(d["content"] for d in retrieval["schema"])
-    queries_ctx = "\n\n--\n\n".join(d["content"] for d in retrieval["queries"])
+def _build_sql_prompt(question: str, retrieval: dict[str, list[dict[str, Any]]]) -> list[dict[str, str]]:
+    schema_context = "\n\n--\n\n".join(item["content"] for item in retrieval["schema"])
+    query_context = "\n\n--\n\n".join(item["content"] for item in retrieval["queries"])
 
-    messages = [
+    user = f"""SCHEMA_DETAILS:
+{schema_context if schema_context else "No schema details found"}
+
+SIMILAR_SQL_EXAMPLES:
+{query_context if query_context else "No similar examples found"}
+
+USER_QUESTION:
+{question}
+
+SQL:"""
+    return [
         {"role": "system", "content": SALES_SQL_SYSTEM},
-        {
-            "role": "user",
-            "content": (
-                f"SCHEMA_DETAILS:\n{schema_ctx or 'No schema found'}\n\n"
-                f"QUERY_EXAMPLES:\n{queries_ctx or 'No examples found'}\n\n"
-                f"USER_QUERY: {question}\nSQL:"
-            ),
-        },
+        {"role": "user", "content": user},
     ]
-    raw = groq_chat_completion(messages, temperature=0.1, max_tokens=512, timeout=60)
-    return _extract_sql(raw)
+
+
+def build_sales_rag_fetch_sql(fetch_query: str) -> dict[str, Any]:
+    question = fetch_query.strip()
+    if not question:
+        raise ValueError("Fetch query is empty")
+
+    retrieval = _get_store().retrieve(question)
+    raw = groq_chat_completion(
+        _build_sql_prompt(question, retrieval),
+        temperature=0,
+        max_tokens=1024,
+        timeout=60,
+        api_key=SALES_SQL_GROQ_API_KEY,
+        model=SALES_SQL_GROQ_MODEL,
+    )
+    sql = _extract_sql(raw)
+    _validate_generated_sql(sql)
+    return {
+        "sql": sql,
+        "params": {},
+        "filters": {
+            "resultType": "ragQuery",
+            "strategy": "rag",
+            "retrievedSchema": [item["metadata"].get("table_name") for item in retrieval["schema"]],
+            "retrievedExamples": [item["metadata"].get("intent") for item in retrieval["queries"]],
+        },
+    }
+
+
+def generate_sales_sql(question: str) -> str:
+    return build_sales_rag_fetch_sql(question)["sql"]

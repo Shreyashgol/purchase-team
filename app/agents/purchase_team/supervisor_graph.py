@@ -3,7 +3,7 @@ from typing import Any, Dict, TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from app.agents.supervisor.fetch_agent import decide
+from app.agents.purchase_team.fetch_agent import decide
 from app.operations.llm_client import chat_completion
 
 CLASSIFIER_PROMPT_TEMPLATE = """
@@ -95,10 +95,10 @@ def router_node(state: SupervisorState) -> SupervisorState:
     document_type = state.get("document_type", "purchase_order")
 
     document_agent = {
-        "purchase_order": "purchase_order_agent",
-        "ap_invoice": "ap_invoice_agent",
-        "purchase_return": "purchase_return_agent",
-    }.get(document_type, "purchase_order_agent")
+        "purchase_order": "purchase_team.purchase_order",
+        "ap_invoice": "purchase_team.purchase_invoice",
+        "purchase_return": "purchase_team.purchase_return",
+    }.get(document_type, "purchase_team.purchase_order")
 
     routing_decision = {
         "action": action,

@@ -9,18 +9,22 @@ def groq_chat_completion(
     temperature: float = 0,
     max_tokens: int = 1024,
     timeout: int = 120,
+    api_key: str | None = None,
+    model: str | None = None,
 ) -> str:
-    if not GROQ_API_KEY:
+    resolved_api_key = api_key or GROQ_API_KEY
+    resolved_model = model or GROQ_MODEL
+    if not resolved_api_key:
         raise RuntimeError("GROQ_API_KEY is required for RAG SQL generation")
 
     response = requests.post(
         f"{GROQ_BASE_URL.rstrip('/')}/chat/completions",
         headers={
-            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Authorization": f"Bearer {resolved_api_key}",
             "Content-Type": "application/json",
         },
         json={
-            "model": GROQ_MODEL,
+            "model": resolved_model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,

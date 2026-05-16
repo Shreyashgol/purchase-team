@@ -28,9 +28,9 @@ def decide(prompt: str) -> dict:
     action = _detect_action(prompt)
     document_type = _detect_document_type(prompt)
     document_agent = {
-        "purchase_order": "purchase_order_agent",
-        "ap_invoice": "ap_invoice_agent",
-        "purchase_return": "purchase_return_agent",
+        "purchase_order": "purchase_team.purchase_order",
+        "ap_invoice": "purchase_team.purchase_invoice",
+        "purchase_return": "purchase_team.purchase_return",
     }[document_type]
 
     return {

@@ -26,5 +26,5 @@ def parse_and_execute(request: PromptRequest, user: str = Depends(verify_jwt_tok
         raise HTTPException(status_code=400, detail=f"Intent parsing failed: {str(exc)}") from exc
 
     repository = APInvoiceRepository()
-    agent_module = load_agent_module("supervisor_agent", "ap_invoice")
+    agent_module = load_agent_module("supervisor_agent", "purchase_team/purchase_invoice")
     return agent_module.execute(intent, repository)

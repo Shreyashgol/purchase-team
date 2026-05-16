@@ -1,7 +1,7 @@
 import importlib.util
 from pathlib import Path
 
-from app.agents.supervisor.fetch_agent import decide
+from app.agents.purchase_team.fetch_agent import decide
 from app.schema.response import PurchaseTeamRoutingResponse
 
 

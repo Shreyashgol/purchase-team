@@ -41,7 +41,7 @@ def execute(intent, repository):
             ),
         )
 
-    agent_module = load_agent_module(agent_name, "purchase_order")
+    agent_module = load_agent_module(agent_name, "purchase_team/purchase_order")
     response = agent_module.execute(intent, repository)
 
     data = response.data or {}

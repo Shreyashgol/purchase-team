@@ -4,7 +4,7 @@ from typing import Any
 import requests
 import streamlit as st
 
-from app.agents.big_supervisor.big_supervisor_agent import route as big_supervisor_route
+from app.agents.big_supervisor_agent import route as big_supervisor_route
 from app.chat_response import generate_chat_response
 
 
@@ -88,7 +88,7 @@ with st.sidebar:
     st.divider()
     st.markdown("**Teams Available**")
     st.markdown("🔵 **Purchase Team** — PO, AP Invoice, Purchase Return")
-    st.markdown("🟢 **Sales Team** — Sales Order, AR Invoice")
+    st.markdown("🟢 **Sales Team** — Sales Order, AR Invoice, Sales Return")
 
 
 # ── Main chat area ────────────────────────────────────────────────────────────

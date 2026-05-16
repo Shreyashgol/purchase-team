@@ -19,4 +19,4 @@ def parse_and_execute(request: PromptRequest, user: str = Depends(verify_jwt_tok
         raise HTTPException(status_code=400, detail=f"Intent parsing failed: {str(exc)}") from exc
 
     repository = PurchaseReturnRepository()
-    return load_agent_module("supervisor_agent", "purchase_return").execute(intent, repository)
+    return load_agent_module("supervisor_agent", "purchase_team/purchase_return").execute(intent, repository)

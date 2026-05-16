@@ -27,6 +27,15 @@
     "sql": "SELECT T0.\"CardCode\", T0.\"CardName\", SUM(T0.\"DocTotal\") AS \"total_order_value\" FROM ORDR T0 WHERE COALESCE(T0.\"CANCELED\", 'N') <> 'Y' GROUP BY T0.\"CardCode\", T0.\"CardName\" ORDER BY \"total_order_value\" DESC LIMIT 10"
   },
   {
+    "question": "show top sales orders",
+    "intent": "rank sales order documents by value",
+    "business_context": "retrieve individual ORDR sales order records ordered by document total",
+    "document_type": "sales_order",
+    "tables_used": ["ORDR"],
+    "embedding_text": "top sales orders highest sales order value biggest orders rank order documents order list top 5 orders",
+    "sql": "SELECT T0.\"DocNum\", T0.\"CardCode\", T0.\"CardName\", T0.\"DocDate\", T0.\"DocTotal\", T0.\"DocStatus\" FROM ORDR T0 WHERE COALESCE(T0.\"CANCELED\", 'N') <> 'Y' ORDER BY T0.\"DocTotal\" DESC LIMIT 10"
+  },
+  {
     "question": "show overdue sales orders",
     "intent": "find overdue open sales orders",
     "business_context": "overdue sales orders are open non-cancelled ORDR rows with DocDueDate before current date",

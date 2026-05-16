@@ -33,7 +33,7 @@ def execute(intent, repository):
             detail="Supervisor blocked create: vendor CardCode and at least one item are required.",
         )
 
-    response = load_agent_module(agent_name, "ap_invoice").execute(intent, repository)
+    response = load_agent_module(agent_name, "purchase_team/purchase_invoice").execute(intent, repository)
     data = response.data or {}
     data["supervisor"] = {
         "decision": f"Routing to {agent_name}",

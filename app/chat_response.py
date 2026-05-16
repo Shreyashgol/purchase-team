@@ -7,7 +7,7 @@ from app.operations.llm_client import chat_completion
 
 
 SYSTEM_PROMPT = """
-You are a helpful SAP Business One purchase assistant inside a chatbot.
+You are a helpful SAP Business One ERP assistant inside a chatbot.
 Answer like a practical business assistant, not like a raw API logger.
 
 Your job:
@@ -92,7 +92,25 @@ def _rows_summary(rows: list[Any], limit: int = 3) -> str:
 
 def _suggestions(prompt: str, document_type: str) -> str:
     lowered = prompt.lower()
-    if "purchase order" in document_type:
+    if "sales order" in document_type:
+        suggestions = [
+            "Show overdue open sales orders",
+            "Which customers have the highest sales order value?",
+            "Which products have the most pending sales order quantity?",
+        ]
+    elif "ar invoice" in document_type or "sales invoice" in document_type:
+        suggestions = [
+            "What is the total AR invoice balance receivable?",
+            "Which customers have bought the most?",
+            "Which products are selling the most?",
+        ]
+    elif "sales return" in document_type:
+        suggestions = [
+            "Show latest sales returns",
+            "Which customers have the most sales returns?",
+            "Which items are returned most by customers?",
+        ]
+    elif "purchase order" in document_type:
         suggestions = [
             "Show overdue open purchase orders",
             "Which vendors have the highest pending purchase order value?",

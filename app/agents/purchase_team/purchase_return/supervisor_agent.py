@@ -22,7 +22,7 @@ def execute(intent, repository):
     if action == "create" and (not intent.cardCode or not intent.items):
         raise HTTPException(status_code=400, detail="Supervisor blocked create: vendor CardCode and at least one item are required.")
 
-    response = load_agent_module(agent_name, "purchase_return").execute(intent, repository)
+    response = load_agent_module(agent_name, "purchase_team/purchase_return").execute(intent, repository)
     data = response.data or {}
     data["supervisor"] = {"decision": f"Routing to {agent_name}", "action": action, "agent": agent_name}
     response.data = data
